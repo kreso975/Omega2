@@ -51,13 +51,13 @@ class OmegaLCD
     const LCD_BACKLIGHT     = 0x08;
     const LCD_NOBACKLIGHT   = 0x00;
 
-    public $En = 0b00000100; # Enable bit
-    public $Rw = 0b00000010; # Read/Write bit
-    public $Rs = 0b00000001; # Register select bit
+    protected $En = 0b00000100; # Enable bit
+    protected $Rw = 0b00000010; # Read/Write bit
+    protected $Rs = 0b00000001; # Register select bit
 
     # sleep durations
-    public $writeSleep = 0.0001; // 1 millisecond
-    public $initSleep = 0.2;
+    protected $writeSleep = 0.0001; // 1 millisecond
+    protected $initSleep = 0.2;
 
     //<PORT> <ADDRESS> <COMMAND>
     const WRITE_I2C = 'i2cset -y %u %s 0x00 %s';
@@ -66,7 +66,7 @@ class OmegaLCD
     #initializes objects and lcd
     function __construct( $address, $port = 0 )
     {
-        global $initSleep;
+        //global $initSleep;
         # i2c device parameters
         $this->address = $address;
         $this->port = $port;
@@ -87,39 +87,36 @@ class OmegaLCD
         $this->lcdWrite( self::LCD_DISPLAYCONTROL | self::LCD_DISPLAYON );
         $this->lcdWrite( self::lcdClearDISPLAY );
         $this->lcdWrite( self::LCD_ENTRYMODESET | self::LCD_ENTRYLEFT );
-        sleep( $initSleep );
+
+        sleep( $this->initSleep );
     }
 
 
     # function to write byte to the screen via I2C
-    function writeBytesToLcd( $cmd )
+    private function writeBytesToLcd( $cmd )
     {
-        global $writeSleep;
-
         //echo $cmd." - : ";
         $command = sprintf( self::WRITE_I2C, $this->port,"0x".dechex($this->address), "0x".dechex($cmd)  );
         //echo $command." | ";
         shell_exec( $command );
 
-        sleep($writeSleep);
+        sleep( $this->writeSleep );
     }
 
 
     # creates an EN pulse (using I2C) to latch previously sent command
-    function lcdStrobe( $data )
+    private function lcdStrobe( $data )
     {
-        $En = 0b00000100; # Enable bit
+        //echo " -Data:".$data." -En:".$this->En." | ";
 
-        //echo " -Data:".$data." -En:".$En." | ";
-
-        $this->writeBytesToLcd($data | $En | $this->lcdbacklight );
+        $this->writeBytesToLcd($data | $this->En | $this->lcdbacklight );
         sleep(.0005);
-        $this->writeBytesToLcd((( $data &= ~$En ) | $this->lcdbacklight));
+        $this->writeBytesToLcd( ( ( $data &= ~$this->En ) | $this->lcdbacklight) );
         sleep(.0001);
     }
 
 
-    function lcdWriteFourBits( $data )
+    private function lcdWriteFourBits( $data )
     {
         //echo $data." - ";
         # write four data bits along with backlight state to the screen
@@ -130,7 +127,7 @@ class OmegaLCD
 
 
     # function to write an 8-bit command to lcd
-    function lcdWrite( $cmd, $mode = 0 )
+    private function lcdWrite( $cmd, $mode = 0 )
     {
         # due to how the I2C backpack expects data, we need to send the top
         #four and bottom four bits of the command separately
@@ -140,10 +137,8 @@ class OmegaLCD
 
 
     # function to display a string on the screen
-    function lcdDisplayString( $string, $line )
+    private function lcdDisplayString( $string, $line )
     {
-        $Rs = 0b00000001; # Register select bit
-
         if ( $line == 1 )
         {
             $this->line1 = $string;
@@ -171,12 +166,12 @@ class OmegaLCD
         for ( $char = 0; $char < strlen($string); $char++ )
         {
             //echo " char:".chr(ord($string[$char]))." - Rs: ".$Rs." ";
-            $this->lcdWrite( ord($string[$char]), $Rs );
+            $this->lcdWrite( ord($string[$char]), $this->Rs );
         }
     }
 
 
-    function lcdDisplayStringList( $strings )
+    public function lcdDisplayStringList( $strings )
     {
         //var_dump($strings);
         //echo " Broj c(s):".count($strings)." | ";
@@ -184,20 +179,19 @@ class OmegaLCD
         {
             $this->lcdDisplayString( $strings[$x], $x+1);
         }
-
     }
 
 
     # clear lcd and set to home
-    function lcdClear()
+    public function lcdClear()
     {
-        $this->lcdWrite(self::lcdClearDISPLAY);
-        $this->lcdWrite(self::LCD_RETURNHOME);
+        $this->lcdWrite(self::lcdClearDISPLAY );
+        $this->lcdWrite(self::LCD_RETURNHOME );
     }
 
 
     # write the current lines to the screen
-    function refresh()
+    public function refresh()
     {
         $this->lcdDisplayString( $this->line1,1 );
         $this->lcdDisplayString( $this->line2,2 );
@@ -207,14 +201,14 @@ class OmegaLCD
 
 
     # turn on the backlight
-    function backlightOn()
+    public function backlightOn()
     {
         $this->lcdbacklight = self::LCD_BACKLIGHT;
         $this->refresh();
     }
 
     # turn off the backlight
-    function backlightOff()
+    public function backlightOff()
     {
         $this->lcdbacklight = self::LCD_NOBACKLIGHT;
         $this->refresh() ;
