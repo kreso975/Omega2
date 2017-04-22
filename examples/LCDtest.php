@@ -20,7 +20,7 @@ $LCD->backlightOn();
 //$BayMax->backlightOff();
 $temp = $Temperature->read1Wtemperature("C");
 
-echo $temp;
+//echo $temp;
 $writeThis = Array ("Temperature:",  trim($temp)." C" );
 
 $LCD->lcdDisplayStringList($writeThis);
