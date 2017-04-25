@@ -6,8 +6,7 @@
  * Php - Kresimir Kokanovic
  */
 
-class OmegaLCD
-{
+
     ## LCD Display commands
     # commands
     const lcdClearDISPLAY       = 0x01;
@@ -51,169 +50,192 @@ class OmegaLCD
     const LCD_BACKLIGHT     = 0x08;
     const LCD_NOBACKLIGHT   = 0x00;
 
-    protected $En = 0b00000100; # Enable bit
-    protected $Rw = 0b00000010; # Read/Write bit
-    protected $Rs = 0b00000001; # Register select bit
+    $En = 0b00000100; # Enable bit
+    $Rw = 0b00000010; # Read/Write bit
+    $Rs = 0b00000001; # Register select bit
 
     # sleep durations
-    protected $writeSleep = 0.0001; // 1 millisecond
-    protected $initSleep = 0.2;
+    $writeSleep = 0.0001; // 1 millisecond
+    $initSleep = 0.2;
 
+    $lcdbacklight = LCD_BACKLIGHT;
     //<PORT> <ADDRESS> <COMMAND>
     const WRITE_I2C = 'i2cset -y %u %s %s';
-    //const WRITE_I2C = 'i2cset -y %u %s 0x00 %s';
 
 
     #initializes objects and lcd
-    function __construct( $address, $port = 0 )
+    function init( $address, $port = 0 )
     {
-        //global $initSleep;
-        # i2c device parameters
-        $this->address = $address;
-        $this->port = $port;
-
+        global $initSleep;
         # lcd defaults
-        $this->lcdbacklight = self::LCD_BACKLIGHT; #default status
-        $this->line1 = "";
-        $this->line2 = "";
-        $this->line3 = "";
-        $this->line4 = "";
+        #default status
+        $lcdbacklight = LCD_BACKLIGHT;
+        $line1 = "";
+        $line2 = "";
+        $line3 = "";
+        $line4 = "";
 
-        $this->lcdWrite(0x03);
-        $this->lcdWrite(0x03);
-        $this->lcdWrite(0x03);
-        $this->lcdWrite(0x02);
+        lcdWrite(0x03);
+        lcdWrite(0x03);
+        lcdWrite(0x03);
+        lcdWrite(0x02);
 
-        $this->lcdWrite( self::LCD_FUNCTIONSET | self::LCD_2LINE | self::LCD_5x8DOTS | self::LCD_4BITMODE );
-        $this->lcdWrite( self::LCD_DISPLAYCONTROL | self::LCD_DISPLAYON );
-        $this->lcdWrite( self::lcdClearDISPLAY );
-        $this->lcdWrite( self::LCD_ENTRYMODESET | self::LCD_ENTRYLEFT );
+        lcdWrite( LCD_FUNCTIONSET | LCD_2LINE | LCD_5x8DOTS | LCD_4BITMODE );
+        lcdWrite( LCD_DISPLAYCONTROL | LCD_DISPLAYON );
+        lcdWrite( lcdClearDISPLAY );
+        lcdWrite( LCD_ENTRYMODESET | LCD_ENTRYLEFT );
 
-        sleep( $this->initSleep );
+        sleep( $initSleep );
     }
 
 
     # function to write byte to the screen via I2C
-    private function writeBytesToLcd( $cmd )
+    function writeBytesToLcd( $cmd )
     {
+        global $port, $address, $writeSleep;
+
         //echo $cmd." - : ";
-        $command = sprintf( self::WRITE_I2C, $this->port,"0x".dechex($this->address), "0x".dechex($cmd)  );
+        $command = sprintf( WRITE_I2C, $port,"0x".dechex($address), "0x".dechex($cmd)  );
         //echo $command." | ";
         shell_exec( $command );
 
-        sleep( $this->writeSleep );
+        sleep( $writeSleep );
     }
 
 
     # creates an EN pulse (using I2C) to latch previously sent command
-    private function lcdStrobe( $data )
+    function lcdStrobe( $data )
     {
+        global $En, $lcdbacklight;
         //echo " -Data:".$data." -En:".$this->En." | ";
 
-        $this->writeBytesToLcd($data | $this->En | $this->lcdbacklight );
+        writeBytesToLcd($data | $En | $lcdbacklight );
         sleep(.0005);
-        $this->writeBytesToLcd( ( ( $data &= ~$this->En ) | $this->lcdbacklight) );
+        writeBytesToLcd( ( ( $data &= ~$En ) | $lcdbacklight) );
         sleep(.0001);
     }
 
 
-    private function lcdWriteFourBits( $data )
+    function lcdWriteFourBits( $data )
     {
+        global $lcdbacklight;
         //echo $data." - ";
         # write four data bits along with backlight state to the screen
-        $this->writeBytesToLcd($data | $this->lcdbacklight );
+        writeBytesToLcd($data | $lcdbacklight );
         # perform strobe to latch the data we just sent
-        $this->lcdStrobe( $data );
+        lcdStrobe( $data );
     }
 
 
     # function to write an 8-bit command to lcd
-    private function lcdWrite( $cmd, $mode = 0 )
+    function lcdWrite( $cmd, $mode = 0 )
     {
+        //echo "CMD:".$cmd." - Mod:".$mode." | ";
         # due to how the I2C backpack expects data, we need to send the top
         #four and bottom four bits of the command separately
-        $this->lcdWriteFourBits($mode | ( $cmd & 0xF0 ) );
-        $this->lcdWriteFourBits($mode | ( ($cmd << 4 ) & 0xF0 ) );
+        lcdWriteFourBits($mode | ( $cmd & 0xF0 ) );
+        lcdWriteFourBits($mode | ( ($cmd << 4 ) & 0xF0 ) );
     }
 
 
     # function to display a string on the screen
-    private function lcdDisplayString( $string, $line )
+    function lcdDisplayString( $string, $line )
     {
+        global $Rs;
+
         if ( $line == 1 )
         {
-            $this->line1 = $string;
-            $this->lcdWrite(0x80 );
+            $line1 = $string;
+            lcdWrite(0x80 );
         }
 
         if ( $line == 2 )
         {
-            $this->line2 = $string;
-            $this->lcdWrite(0xC0 );
+            $line2 = $string;
+            lcdWrite(0xC0 );
         }
 
         if ( $line == 3 )
         {
-            $this->line3 = $string;
-            $this->lcdWrite(0x94 );
+            $line3 = $string;
+            lcdWrite(0x94 );
         }
 
         if ( $line == 4 )
         {
-            $this->line4 = $string;
-            $this->lcdWrite(0xD4 );
+            $line4 = $string;
+            lcdWrite(0xD4 );
         }
 
         $stringLenght = strlen($string);
         for ( $char = 0; $char < $stringLenght; $char++ )
         {
             //echo " char:".chr(ord($string[$char]))." - Rs: ".$Rs." ";
-            $this->lcdWrite( ord($string[$char]), $this->Rs );
+            lcdWrite( ord($string[$char]),$Rs );
         }
     }
 
 
-    public function lcdDisplayStringList( $strings )
+    function lcdDisplayStringList( $strings )
     {
         //var_dump($strings);
         //echo " Broj c(s):".count($strings)." | ";
         for ( $x = 0; $x <= count($strings); $x++ )
         {
-            $this->lcdDisplayString( $strings[$x], $x+1);
+            lcdDisplayString( $strings[$x], $x+1);
         }
     }
 
 
     # clear lcd and set to home
-    public function lcdClear()
+    function lcdClear()
     {
-        $this->lcdWrite(self::lcdClearDISPLAY );
-        $this->lcdWrite(self::LCD_RETURNHOME );
+        lcdWrite(lcdClearDISPLAY );
+        lcdWrite(LCD_RETURNHOME );
     }
 
 
     # write the current lines to the screen
-    public function refresh()
+    function refresh()
     {
-        $this->lcdDisplayString( $this->line1,1 );
-        $this->lcdDisplayString( $this->line2,2 );
-        $this->lcdDisplayString( $this->line3,3 );
-        $this->lcdDisplayString( $this->line4,4 );
+        global $line1, $line2, $line3, $line4;
+
+        lcdDisplayString( $line1,1 );
+        lcdDisplayString( $line2,2 );
+        lcdDisplayString( $line3,3 );
+        lcdDisplayString( $line4,4 );
     }
 
 
     # turn on the backlight
-    public function backlightOn()
+    function backlightOn()
     {
-        $this->lcdbacklight = self::LCD_BACKLIGHT;
-        $this->refresh();
+        $lcdbacklight = LCD_BACKLIGHT;
+        refresh();
     }
 
     # turn off the backlight
-    public function backlightOff()
+    function backlightOff()
     {
-        $this->lcdbacklight = self::LCD_NOBACKLIGHT;
-        $this->refresh() ;
+        $lcdbacklight = LCD_NOBACKLIGHT;
+        refresh() ;
     }
 
-}
+
+$address = 0x3f;
+$ReadTemperature = Array ( "C" => "Celsius", "F" => "Fahrenheit");
+
+
+init($address);
+lcdClear();
+backlightOn();
+//$BayMax->backlightOff();
+//$temp = $Temperature->read1Wtemperature("C");
+
+//echo $temp;
+//$writeThis = Array ("Temperature:",  trim($temp)." C" );
+$writeThis = Array ("Temperature:",  "26.345 C" );
+
+lcdDisplayStringList($writeThis);
+backlightOn();
+//$LCD->lcdClear();
