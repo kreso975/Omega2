@@ -1,6 +1,6 @@
 Compiled C++ for Onion Omega2
 
-omegaLCD: (package)
+omegaLCD: (package) - LCD 2x16
 - opkg install <filename>
 - installed in /bin directory 
 
